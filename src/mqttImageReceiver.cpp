@@ -143,8 +143,8 @@ int main(int argc, char **argv)
   std::string broker = "localhost";
   int brokerPort = 1883;
 
-  nodeHandle.getParam("/mqttImageReceiver/mqttBrokerPort", brokerPort);
-  ros::param::get("/mqttImageReceiver/mqttBroker", broker);
+  nodeHandle.getParam("/mqttBrokerPort", brokerPort);
+  ros::param::get("/mqttBroker", broker);
 
   ROS_INFO("Connecting to %s at %d port\n",broker.c_str(), brokerPort);
 

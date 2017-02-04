@@ -127,9 +127,8 @@ int main(int argc, char **argv)
 
   std::string broker = "localhost";
   int brokerPort = 1883;
-
-  ros::param::get("/mqttSender/mqttBroker", broker);
-  nodeHandle.getParam("/mqttSender/mqttBrokerPort", brokerPort);
+  ros::param::get("/mqttBroker", broker);
+  nodeHandle.getParam("/mqttBrokerPort", brokerPort);
 
   ROS_INFO("Connecting to %s at %d\n", broker.c_str(), brokerPort);
   

@@ -149,8 +149,8 @@ int main(int argc, char **argv)
 
   //Read the variables from the parameter launch file. If the variable is not mentioned
   //in the parameter launch file, the defaults defined above are used. 
-  nodeHandle.getParam("/mqttCmdVelSender/mqttBrokerPort", brokerPort);
-  ros::param::get("/mqttCmdVelSender/mqttBroker", broker);
+  nodeHandle.getParam("/mqttBrokerPort", brokerPort);
+  ros::param::get("/mqttBroker", broker);
 
   ROS_INFO("Connecting to %s at %d\n", broker.c_str(), brokerPort);
   

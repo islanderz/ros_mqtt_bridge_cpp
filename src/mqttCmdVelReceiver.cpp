@@ -164,8 +164,8 @@ int main(int argc, char **argv)
   
   std::string broker = "localhost";
   int brokerPort = 1883;
-  nodeHandle.getParam("/mqttCmdVelReceiver/mqttBrokerPort", brokerPort);
-  ros::param::get("/mqttCmdVelReceiver/mqttBroker", broker);
+  nodeHandle.getParam("/mqttBrokerPort", brokerPort);
+  ros::param::get("/mqttBroker", broker);
   
   class mqtt_bridge *mqttBridge;
   mqttBridge->lib_init();
