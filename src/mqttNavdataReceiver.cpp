@@ -48,6 +48,8 @@ class mqtt_bridge : public mosquittopp::mosquittopp
     //Callback redirects here when a Navdata message is received over MQTT. This function packages the data received
     //over MQTT into a navMsg format for ROS. It then publishes that message out.
     void handleNavdata(const struct mosquitto_message *message);
+    std::string publishedRosTopic_navdata;
+    std::string subscribedMqttTopic_navdata;
 
 };
 
@@ -58,7 +60,7 @@ class mqtt_bridge : public mosquittopp::mosquittopp
 void mqtt_bridge::initPublishers()
 {
   //The publisher for ROS navdata on tum_ardrone/navdata
-  navdataPub_ = nh_.advertise<ardrone_autonomy::Navdata>("tum_ardrone/navdata", 1);
+  navdataPub_ = nh_.advertise<ardrone_autonomy::Navdata>(publishedRosTopic_navdata.c_str(), 1);
 }
 
 
@@ -70,8 +72,8 @@ mqtt_bridge::mqtt_bridge(const char *id, const char *host, int port, ros::NodeHa
 {
   int keepalive = 60;
   
-  //initialize the navdata and img ros publishers
-  initPublishers();
+  publishedRosTopic_navdata = "/ardrone/navdata";
+  subscribedMqttTopic_navdata = "/mqtt/navdata";
 
   //Connect this class instance to the mqtt host and port.
   connect(host, port, keepalive);
@@ -108,7 +110,7 @@ void mqtt_bridge::handleNavdata(const struct mosquitto_message *message)
 //depending on the topic of the mqtt message that was received.
 void mqtt_bridge::on_message(const struct mosquitto_message *message)
 {
-	if(!strcmp(message->topic, "/ardrone/navdata"))
+	if(!strcmp(message->topic, subscribedMqttTopic_navdata.c_str()))
 	{
 		handleNavdata(message);
 	}
@@ -146,9 +148,13 @@ int main(int argc, char **argv)
 
   mqttBridge = new mqtt_bridge(CLIENTID.c_str(), broker.c_str(), brokerPort, nodeHandle);
   ROS_INFO("mqttBridge initialized..\n");
+  
+  ros::param::get("/mqttNavdataReceiver/subscribedMqttTopic_navdata", mqttBridge->subscribedMqttTopic_navdata);
+  ros::param::get("/mqttNavdataReceiver/publishedRosTopic_navdata", mqttBridge->publishedRosTopic_navdata);
 
+  mqttBridge->initPublishers();
+	mqttBridge->subscribe(NULL, mqttBridge->subscribedMqttTopic_navdata.c_str());
 
-	mqttBridge->subscribe(NULL, "/ardrone/navdata");
   int rc;
 
   int loop_rate = 200;

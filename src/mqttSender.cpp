@@ -45,6 +45,12 @@ class MQTTSender : public mosquittopp::mosquittopp
 
     //This is a callback for receiving an image msg over ROS. It is then sent over MQTT.
     void imageMessageCallback(const sensor_msgs::Image &msg);
+
+    std::string subscribedRosTopic_image;
+    std::string publishedMqttTopic_image;
+
+    std::string subscribedRosTopic_navdata;
+    std::string publishedMqttTopic_navdata;
 };
 
 //The Constructor
@@ -54,8 +60,13 @@ MQTTSender::MQTTSender(const char *id, const char *host, int port, ros::NodeHand
   nh_(nh)
 {
   int keepalive = 60;
-  
-	//Connect this class instance to the mqtt host and port.
+
+  subscribedRosTopic_image = "/ardrone/image_raw";
+  publishedMqttTopic_image = "/mqtt/image";
+
+  subscribedRosTopic_navdata = "/ardrone/navdata";
+  publishedMqttTopic_navdata = "/mqtt/navdata";
+  //Connect this class instance to the mqtt host and port.
   connect(host, port, keepalive);
 };
 
@@ -87,7 +98,7 @@ void MQTTSender::navdataMessageCallback(const ardrone_autonomy::Navdata& msg)
 
   ros::serialization::OStream ostream(obuffer.get(), serial_size);
   ros::serialization::serialize(ostream, msg);
-  publish(NULL, "/ardrone/navdata", serial_size, obuffer.get());
+  publish(NULL, publishedMqttTopic_navdata.c_str(), serial_size, obuffer.get());
  
   return;
 }
@@ -99,7 +110,7 @@ void MQTTSender::imageMessageCallback(const sensor_msgs::Image &msg)
   ros::serialization::OStream ostream(obuffer.get(), serial_size);
   ros::serialization::serialize(ostream, msg);
 
-	publish(NULL, "/ardrone/image", serial_size, obuffer.get());
+	publish(NULL, publishedMqttTopic_image.c_str(), serial_size, obuffer.get());
 
   return;
 }
@@ -114,15 +125,9 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "mqttSender");
   ros::NodeHandle nodeHandle;
 
-	std::string imageMsgTopic = "/ardrone/image_raw";
-	std::string navdataMsgTopic = "/ardrone/navdata";
   std::string broker = "localhost";
   int brokerPort = 1883;
 
-  //Read the variables from the parameter launch file. If the variable is not mentioned
-  //in the parameter launch file, the defaults defined above are used. 
-  nodeHandle.getParam("/mqttSender/imageMsgTopic", imageMsgTopic);
-  nodeHandle.getParam("/mqttSender/navdataMsgTopic", navdataMsgTopic);
   ros::param::get("/mqttSender/mqttBroker", broker);
   nodeHandle.getParam("/mqttSender/mqttBrokerPort", brokerPort);
 
@@ -135,9 +140,15 @@ int main(int argc, char **argv)
 
   mqttSender = new MQTTSender(CLIENTID.c_str(), broker.c_str(), brokerPort, nodeHandle);
   ROS_INFO("mqttSender initialized..\n");
+  
+  ros::param::get("/mqttSender/subscribedRosTopic_navdata", mqttSender->subscribedRosTopic_navdata);
+  ros::param::get("/mqttSender/subscribedRosTopic_image", mqttSender->subscribedRosTopic_image);
+  
+  ros::param::get("/mqttSender/publishedMqttTopic_navdata", mqttSender->publishedMqttTopic_navdata);
+  ros::param::get("/mqttSender/publishedMqttTopic_image", mqttSender->publishedMqttTopic_image);
 
-	ros::Subscriber image_sub = nodeHandle.subscribe(imageMsgTopic, 1000, &MQTTSender::imageMessageCallback, mqttSender);
-  ros::Subscriber navdata_sub = nodeHandle.subscribe(navdataMsgTopic, 1000, &MQTTSender::navdataMessageCallback, mqttSender);
+	ros::Subscriber image_sub = nodeHandle.subscribe(mqttSender->subscribedRosTopic_image.c_str(), 1000, &MQTTSender::imageMessageCallback, mqttSender);
+  ros::Subscriber navdata_sub = nodeHandle.subscribe(mqttSender->subscribedRosTopic_navdata.c_str(), 1000, &MQTTSender::navdataMessageCallback, mqttSender);
  
   int rc;
 

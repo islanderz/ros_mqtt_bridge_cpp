@@ -84,6 +84,17 @@ mqtt_bridge::mqtt_bridge(const char *id, const char *host, int port, ros::NodeHa
 {
   int keepalive = 60;
 
+  subscribedMqttTopic_land = "/mqtt/land";
+  publishedRosTopic_land = "/ardrone/land";
+
+  subscribedMqttTopic_reset = "/mqtt/reset";
+  publishedRosTopic_reset = "/ardrone/reset";
+
+  subscribedMqttTopic_takeoff = "/mqtt/takeoff";
+  publishedRosTopic_takeoff = "/ardrone/takeoff";
+
+  subscribedMqttTopic_cmdvel = "/mqtt/cmd_vel";
+  publishedRosTopic_cmdvel = "/cmd_vel";
 
   //Connect this class instance to the mqtt host and port.
   connect(host, port, keepalive);

@@ -52,6 +52,8 @@ class mqtt_bridge : public mosquittopp::mosquittopp
     //Callback reidrects here when a uncompressedImage message is received over MQTT. The timestamp is extracted and then 
     //the file is packaged into an imageTransport message and sent as a ROS topic.
     void handleUncompressedImage(const struct mosquitto_message *message);
+    std::string publishedRosTopic_image;
+    std::string subscribedMqttTopic_image;
 };
 
 
@@ -60,7 +62,7 @@ class mqtt_bridge : public mosquittopp::mosquittopp
 void mqtt_bridge::initPublishers()
 {
   //The publisher for ROS image messages on tum_ardrone/image
-  imagePub_ = it_.advertise("tum_ardrone/image", 1); 
+  imagePub_ = it_.advertise(publishedRosTopic_image.c_str(), 1); 
 }
 
 
@@ -72,9 +74,9 @@ mqtt_bridge::mqtt_bridge(const char *id, const char *host, int port, ros::NodeHa
   it_(nh)
 {
   int keepalive = 60;
-
-  //initialize the img ros publishers
-  initPublishers();
+    
+  publishedRosTopic_image = "/ardrone/image_raw";
+  subscribedMqttTopic_image = "/mqtt/image";
 
   //Connect this class instance to the mqtt host and port.
   connect(host, port, keepalive);
@@ -115,7 +117,7 @@ void mqtt_bridge::handleUncompressedImage(const struct mosquitto_message *messag
 //depending on the topic of the mqtt message that was received.
 void mqtt_bridge::on_message(const struct mosquitto_message *message)
 {
-	if(!strcmp(message->topic, "/ardrone/image"))
+	if(!strcmp(message->topic, subscribedMqttTopic_image.c_str()))
 	{
 		handleUncompressedImage(message);
 	}
@@ -154,7 +156,12 @@ int main(int argc, char **argv)
   mqttBridge = new mqtt_bridge(CLIENTID.c_str(), broker.c_str(), brokerPort, nodeHandle);
   ROS_INFO("mqttBridge initialized..\n");
 
-	mqttBridge->subscribe(NULL, "/ardrone/image");
+  ros::param::get("/mqttImageReceiver/subscribedMqttTopic_image", mqttBridge->subscribedMqttTopic_image);
+  ros::param::get("/mqttImageReceiver/publishedRosTopic_image", mqttBridge->publishedRosTopic_image);
+
+  mqttBridge->initPublishers();
+
+	mqttBridge->subscribe(NULL, mqttBridge->subscribedMqttTopic_image.c_str());
 
   int rc;
 

@@ -45,6 +45,17 @@ class MQTTSender : public mosquittopp::mosquittopp
     void resetCallback(const std_msgs::EmptyConstPtr);
     void landCallback(const std_msgs::EmptyConstPtr);
     void takeoffCallback(const std_msgs::EmptyConstPtr);
+    std::string publishedMqttTopic_land;
+    std::string subscribedRosTopic_land;
+
+    std::string publishedMqttTopic_reset;
+    std::string subscribedRosTopic_reset;
+
+    std::string publishedMqttTopic_takeoff;
+    std::string subscribedRosTopic_takeoff;
+
+    std::string publishedMqttTopic_cmdvel;
+    std::string subscribedRosTopic_cmdvel;
 };
 
 //The Constructor
@@ -54,8 +65,19 @@ MQTTSender::MQTTSender(const char *id, const char *host, int port, ros::NodeHand
   nh_(nh)
 {
   int keepalive = 60;
-  
-	//Connect this class instance to the mqtt host and port.
+  publishedMqttTopic_land = "/mqtt/land";
+  subscribedRosTopic_land = "/ardrone/land";
+
+  publishedMqttTopic_reset = "/mqtt/reset";
+  subscribedRosTopic_reset = "/ardrone/reset";
+
+  publishedMqttTopic_takeoff = "/mqtt/takeoff";
+  subscribedRosTopic_takeoff = "/ardrone/takeoff";
+
+  publishedMqttTopic_cmdvel = "/mqtt/cmd_vel";
+  subscribedRosTopic_cmdvel = "/cmd_vel";
+
+  //Connect this class instance to the mqtt host and port.
   connect(host, port, keepalive);
 };
 
@@ -88,17 +110,17 @@ void MQTTSender::on_subscribe(int mid, int qos_count, const int *granted_qos)
 void MQTTSender::resetCallback(std_msgs::EmptyConstPtr)
 {
   uint8_t dummy[2];dummy[0] = '#';dummy[1] = '#';
-  publish(NULL, "/ardrone/reset", 1, dummy);
+  publish(NULL, publishedMqttTopic_reset.c_str(), 1, dummy);
 }
 void MQTTSender::takeoffCallback(std_msgs::EmptyConstPtr)
 {
   uint8_t dummy[2];dummy[0] = '#';dummy[1] = '#';
-  publish(NULL, "/ardrone/takeoff", 1, dummy);
+  publish(NULL, publishedMqttTopic_takeoff.c_str(), 1, dummy);
 }
 void MQTTSender::landCallback(std_msgs::EmptyConstPtr)
 {
   uint8_t dummy[2];dummy[0] = '#';dummy[1] = '#';
-  publish(NULL, "/ardrone/land", 1, dummy);
+  publish(NULL, publishedMqttTopic_land.c_str(), 1, dummy);
 }
 void MQTTSender::CmdVelCallback(const geometry_msgs::Twist &msg)
 {
@@ -107,7 +129,7 @@ void MQTTSender::CmdVelCallback(const geometry_msgs::Twist &msg)
 
   ros::serialization::OStream ostream(obuffer.get(), serial_size);
   ros::serialization::serialize(ostream, msg);
-  publish(NULL, "/ardrone/cmd_vel", serial_size, obuffer.get());
+  publish(NULL, publishedMqttTopic_cmdvel.c_str(), serial_size, obuffer.get());
 	
   return;
 }
@@ -118,19 +140,17 @@ int main(int argc, char **argv)
   CLIENTID += std::to_string(rand());
 
   //Mandatory ROS INIT call for this file to be registered as a ROS NODE. 
-  ros::init(argc, argv, "mqttSender");
+  ros::init(argc, argv, "mqttCmdVelSender");
   ros::NodeHandle nodeHandle;
 
   //Initialize different variables that are to be read from the parameter file.
   std::string broker = "localhost";
-  std::string cmdVelMsgTopic = "/cmd_vel";
   int brokerPort = 1883;
 
   //Read the variables from the parameter launch file. If the variable is not mentioned
   //in the parameter launch file, the defaults defined above are used. 
-  nodeHandle.getParam("/mqttSender/cmdVelMsgTopic", cmdVelMsgTopic);
-  nodeHandle.getParam("/mqttSender/mqttBrokerPort", brokerPort);
-  ros::param::get("/mqttSender/mqttBroker", broker);
+  nodeHandle.getParam("/mqttCmdVelSender/mqttBrokerPort", brokerPort);
+  ros::param::get("/mqttCmdVelSender/mqttBroker", broker);
 
   ROS_INFO("Connecting to %s at %d\n", broker.c_str(), brokerPort);
   
@@ -141,11 +161,21 @@ int main(int argc, char **argv)
 
   mqttSender = new MQTTSender(CLIENTID.c_str(), broker.c_str(), brokerPort, nodeHandle);
   ROS_INFO("mqttSender initialized..\n");
+  
+  ros::param::get("/mqttCmdVelSender/subscribedRosTopic_cmdvel", mqttSender->subscribedRosTopic_cmdvel);
+  ros::param::get("/mqttCmdVelSender/subscribedRosTopic_takeoff", mqttSender->subscribedRosTopic_takeoff);
+  ros::param::get("/mqttCmdVelSender/subscribedRosTopic_land", mqttSender->subscribedRosTopic_land);
+  ros::param::get("/mqttCmdVelSender/subscribedRosTopic_reset", mqttSender->subscribedRosTopic_reset);
+  
+  ros::param::get("/mqttCmdVelSender/publishedMqttTopic_cmdvel", mqttSender->publishedMqttTopic_cmdvel);
+  ros::param::get("/mqttCmdVelSender/publishedMqttTopic_takeoff", mqttSender->publishedMqttTopic_takeoff);
+  ros::param::get("/mqttCmdVelSender/publishedMqttTopic_land", mqttSender->publishedMqttTopic_land);
+  ros::param::get("/mqttCmdVelSender/publishedMqttTopic_reset", mqttSender->publishedMqttTopic_reset);
 
-  ros::Subscriber cmd_vel_sub = nodeHandle.subscribe(cmdVelMsgTopic, 1000, &MQTTSender::CmdVelCallback, mqttSender);
-  ros::Subscriber reset_sub = nodeHandle.subscribe("/ardrone/reset", 1000, &MQTTSender::resetCallback, mqttSender);
-  ros::Subscriber land_sub = nodeHandle.subscribe("/ardrone/land", 1000, &MQTTSender::landCallback, mqttSender);
-  ros::Subscriber takeoff_sub = nodeHandle.subscribe("/ardrone/takeoff", 1000, &MQTTSender::takeoffCallback, mqttSender);
+  ros::Subscriber cmd_vel_sub = nodeHandle.subscribe(mqttSender->subscribedRosTopic_cmdvel.c_str(), 1000, &MQTTSender::CmdVelCallback, mqttSender);
+  ros::Subscriber reset_sub = nodeHandle.subscribe(mqttSender->subscribedRosTopic_reset.c_str(), 1000, &MQTTSender::resetCallback, mqttSender);
+  ros::Subscriber land_sub = nodeHandle.subscribe(mqttSender->subscribedRosTopic_land.c_str(), 1000, &MQTTSender::landCallback, mqttSender);
+  ros::Subscriber takeoff_sub = nodeHandle.subscribe(mqttSender->subscribedRosTopic_takeoff.c_str(), 1000, &MQTTSender::takeoffCallback, mqttSender);
  
   int rc;
 
