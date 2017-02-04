@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Receives Images and Navdata from the Mqtt and publishes on ROS -->
+    <node name="mqttImageReceiver" pkg="ros_mqtt_bridge_cpp" type="mqttImageReceiver" output="screen" clear_params="true">
+        <param name="mqttBroker" value="localhost" />
+        <param name="mqttBrokerPort" value="1883" />
+        <param name="loop_rate" value="40" />
+    </node>
+    <node name="mqttNavdataReceiver" pkg="ros_mqtt_bridge_cpp" type="mqttNavdataReceiver" output="screen" clear_params="true">
+        <param name="mqttBroker" value="localhost" />
+        <param name="mqttBrokerPort" value="1883" />
+        <param name="loop_rate" value="250" />
+    </node>
+    <!-- Sends CmdVel, takeoff, reset and land messages to the Mqtt broker -->
+    <node name="mqttCmdVelSender" pkg="ros_mqtt_bridge_cpp" type="mqttCmdVelSender" output="screen" clear_params="true">
+        <param name="mqttBroker" value="localhost" />
+        <param name="mqttBrokerPort" value="1883" />
+    </node>
+</launch>
+
