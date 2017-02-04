@@ -49,7 +49,19 @@ class mqtt_bridge : public mosquittopp::mosquittopp
     //Set the image and navdata publishers over ROS. Called in the constructor.
     void initPublishers();
 
-		void handleCmdVel(const struct mosquitto_message *message);
+    void handleCmdVel(const struct mosquitto_message *message);
+
+    std::string subscribedMqttTopic_land;
+    std::string publishedRosTopic_land;
+
+    std::string subscribedMqttTopic_reset;
+    std::string publishedRosTopic_reset;
+
+    std::string subscribedMqttTopic_takeoff;
+    std::string publishedRosTopic_takeoff;
+
+    std::string subscribedMqttTopic_cmdvel;
+    std::string publishedRosTopic_cmdvel;
 };
 
 
@@ -57,10 +69,10 @@ class mqtt_bridge : public mosquittopp::mosquittopp
 //This is called in the constructor.
 void mqtt_bridge::initPublishers()
 {
-	cmdVelPub_ = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1); 
-  landPub_ = nh_.advertise<std_msgs::Empty>("/ardrone/land", 1);
-  resetPub_ = nh_.advertise<std_msgs::Empty>("/ardrone/reset", 1);
-  takeoffPub_ = nh_.advertise<std_msgs::Empty>("/ardrone/takeoff", 1);
+	cmdVelPub_ = nh_.advertise<geometry_msgs::Twist>(publishedRosTopic_cmdvel.c_str(), 1); 
+  landPub_ = nh_.advertise<std_msgs::Empty>(publishedRosTopic_land.c_str(), 1);
+  resetPub_ = nh_.advertise<std_msgs::Empty>(publishedRosTopic_reset.c_str(), 1);
+  takeoffPub_ = nh_.advertise<std_msgs::Empty>(publishedRosTopic_takeoff.c_str(), 1);
 }
 
 
@@ -72,8 +84,6 @@ mqtt_bridge::mqtt_bridge(const char *id, const char *host, int port, ros::NodeHa
 {
   int keepalive = 60;
 
-  //initialize the navdata and img ros publishers
-  initPublishers();
 
   //Connect this class instance to the mqtt host and port.
   connect(host, port, keepalive);
@@ -107,19 +117,19 @@ void mqtt_bridge::handleCmdVel(const struct mosquitto_message *message)
 //depending on the topic of the mqtt message that was received.
 void mqtt_bridge::on_message(const struct mosquitto_message *message)
 {
-	if(!strcmp(message->topic, "/ardrone/reset"))
+	if(!strcmp(message->topic, subscribedMqttTopic_reset.c_str()))
 	{
 		resetPub_.publish(std_msgs::Empty());
 	}
-	else if(!strcmp(message->topic, "/ardrone/land"))
+	else if(!strcmp(message->topic, subscribedMqttTopic_land.c_str() ))
 	{
 		landPub_.publish(std_msgs::Empty());
 	}
-	else if(!strcmp(message->topic, "/ardrone/takeoff"))
+	else if(!strcmp(message->topic, subscribedMqttTopic_takeoff.c_str()))
 	{
 		takeoffPub_.publish(std_msgs::Empty());
 	}
-  else if(!strcmp(message->topic, "/ardrone/cmd_vel"))
+  else if(!strcmp(message->topic, subscribedMqttTopic_cmdvel.c_str()))
   {
     handleCmdVel(message);
   }
@@ -140,26 +150,42 @@ int main(int argc, char **argv)
   //Mandatory ROS INIT call for this file to be registered as a ROS NODE. 
   ros::init(argc, argv, "mqttCmdVelReceiver");
   ros::NodeHandle nodeHandle;
-
+  
   std::string broker = "localhost";
   int brokerPort = 1883;
   nodeHandle.getParam("/mqttCmdVelReceiver/mqttBrokerPort", brokerPort);
   ros::param::get("/mqttCmdVelReceiver/mqttBroker", broker);
+  
+  class mqtt_bridge *mqttBridge;
+  mqttBridge->lib_init();
+  mqttBridge = new mqtt_bridge(CLIENTID.c_str(), broker.c_str(), brokerPort, nodeHandle);
+
+  //Read Parameters from the launch file
+  ros::param::get("/mqttCmdVelReceiver/subscribedMqttTopic_cmdvel", mqttBridge->subscribedMqttTopic_cmdvel);
+  ros::param::get("/mqttCmdVelReceiver/subscribedMqttTopic_reset", mqttBridge->subscribedMqttTopic_reset);
+  ros::param::get("/mqttCmdVelReceiver/subscribedMqttTopic_land", mqttBridge->subscribedMqttTopic_land);
+  ros::param::get("/mqttCmdVelReceiver/subscribedMqttTopic_takeoff", mqttBridge->subscribedMqttTopic_takeoff);
+
+
+  ros::param::get("/mqttCmdVelReceiver/publishedRosTopic_cmdvel", mqttBridge->publishedRosTopic_cmdvel);
+  ros::param::get("/mqttCmdVelReceiver/publishedRosTopic_reset", mqttBridge->publishedRosTopic_reset);
+  ros::param::get("/mqttCmdVelReceiver/publishedRosTopic_land", mqttBridge->publishedRosTopic_land);
+  ros::param::get("/mqttCmdVelReceiver/publishedRosTopic_takeoff", mqttBridge->publishedRosTopic_takeoff);
+  
+  ROS_INFO("MQTT %s -> ROS %s, MQTT %s -> ROS %s, MQTT %s -> ROS %s, MQTT %s -> ROS %s\n", 
+      mqttBridge->subscribedMqttTopic_cmdvel.c_str(),  mqttBridge->publishedRosTopic_cmdvel.c_str(),
+      mqttBridge->subscribedMqttTopic_reset.c_str(), mqttBridge->publishedRosTopic_reset.c_str(),
+      mqttBridge->subscribedMqttTopic_land.c_str(), mqttBridge->publishedRosTopic_land.c_str(),
+      mqttBridge->subscribedMqttTopic_takeoff.c_str(), mqttBridge->publishedRosTopic_takeoff.c_str());
+
+  mqttBridge->initPublishers();
 
   ROS_INFO("Connecting to %s at %d\n", broker.c_str(), brokerPort);
-  
-  //Initialize the mqttBridge class instance
-  class mqtt_bridge *mqttBridge;
-
-  mqttBridge->lib_init();
-
-  mqttBridge = new mqtt_bridge(CLIENTID.c_str(), broker.c_str(), brokerPort, nodeHandle);
-  ROS_INFO("mqttBridge initialized..\n");
-
- 	mqttBridge->subscribe(NULL, "/ardrone/cmd_vel");
- 	mqttBridge->subscribe(NULL, "/ardrone/takeoff");
- 	mqttBridge->subscribe(NULL, "/ardrone/land");
- 	mqttBridge->subscribe(NULL, "/ardrone/reset");
+ 	
+  mqttBridge->subscribe(NULL, mqttBridge->subscribedMqttTopic_cmdvel.c_str());
+ 	mqttBridge->subscribe(NULL, mqttBridge->subscribedMqttTopic_reset.c_str());
+ 	mqttBridge->subscribe(NULL, mqttBridge->subscribedMqttTopic_land.c_str());
+ 	mqttBridge->subscribe(NULL, mqttBridge->subscribedMqttTopic_takeoff.c_str());
 
   int rc;
 
