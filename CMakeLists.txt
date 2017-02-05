@@ -153,7 +153,13 @@ target_link_libraries(mqttSender ${catkin_LIBRARIES} -lmosquittopp)
 add_executable(mqttCmdVelSender src/mqttCmdVelSender.cpp)
 target_link_libraries(mqttCmdVelSender ${catkin_LIBRARIES} -lmosquittopp)
 
-install(TARGETS mqttCmdVelSender mqttSender mqttCmdVelReceiver mqttImageReceiver mqttNavdataReceiver RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+add_executable(mqttPingRequester src/mqttPingRequester.cpp)
+target_link_libraries(mqttPingRequester ${catkin_LIBRARIES} -lmosquittopp)
+
+add_executable(mqttPingResponder src/mqttPingResponder.cpp)
+target_link_libraries(mqttPingResponder ${catkin_LIBRARIES} -lmosquittopp)
+
+install(TARGETS mqttCmdVelSender mqttSender mqttPingRequester mqttPingResponder mqttCmdVelReceiver mqttImageReceiver mqttNavdataReceiver RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 install(DIRECTORY launch/
     DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
     PATTERN ".git" EXCLUDE
