@@ -1,5 +1,5 @@
 /*******************************************************************************
-   Edited by: 2016/2017 Harshit Sureka <harshit.sureka@gmail.com>
+  Edited by: 2016/2017 Harshit Sureka <harshit.sureka@gmail.com>
  *
  * A mqtt class to receive image packets sent by the ardrone_autonomy through
  * the mqtt bridge
@@ -7,6 +7,7 @@
 
 #include "ros/ros.h"
 #include "ros/serialization.h"
+#include "boost/thread.hpp"
 #include <mosquittopp.h>
 
 std::string CLIENTID("mqttPingResponder");
@@ -42,18 +43,97 @@ class mqtt_bridge : public mosquittopp::mosquittopp
     //Set the image publisher over ROS. Called in the constructor.
     void initPublishers();
 
-    //Callback reidrects here when a uncompressedImage message is received over MQTT. The timestamp is extracted and then 
-    //the file is packaged into an imageTransport message and sent as a ROS topic.
-    void handlePingResponse(const struct mosquitto_message *message);
+    double p500;
+    double p20000;
+    char pingCommand500[100];
+    char pingCommand20000[100];
+    char line1[200];
+    char line2[200];
+
+    void PingFunction();
+    double parsePingResult(std::string s);
 };
 
+double mqtt_bridge::parsePingResult(std::string s)
+{
+  // 20008 bytes from localhost (127.0.0.1): icmp_req=1 ttl=64 time=0.075 ms
+  int pos = s.find("time=");
+  int found = 0;
+  float ms;
+  if(pos != std::string::npos)
+    found = sscanf(s.substr(pos).c_str(),"time=%f",&ms);
+
+  if(found == 1 && pos != std::string::npos)
+    return ms;
+  else
+    return 10000;
+}
+void mqtt_bridge::PingFunction()
+{
+  std::cout << "Starting PING Thread" << std::endl;
+
+  sprintf(pingCommand20000,"ping -c 1 -s 20000 -w 1 192.168.1.1");
+  sprintf(pingCommand500,"ping -c 1 -s 500 -w 1 192.168.1.1");
+  //	sprintf(pingCommand20000,"ping -c 1 -s 20000 -w 1 127.0.0.1");
+  //	sprintf(pingCommand500,"ping -c 1 -s 500 -w 1 127.0.0.1");
+  ros::Rate r(2.0);
+  FILE *p;
+
+  while(ros::ok())
+  {
+    // ping twice, with a sleep in between
+    p = popen(pingCommand500,"r");
+    fgets(line1, 200, p);
+    fgets(line1, 200, p);
+    pclose(p);
+
+    // sleep 1s
+    r.sleep();
+    if(!ros::ok()) break;
+    r.sleep();
+    if(!ros::ok()) break;
+
+    p = popen(pingCommand20000,"r");
+    fgets(line2, 200, p);
+    fgets(line2, 200, p);
+    pclose(p);
+
+    // parse results which should be in line1 and line2
+    double res500 = parsePingResult(line1);
+    double res20000 = parsePingResult(line2);
+
+    std::cout << "new ping values: 500->" << res500 << " 20000->" << res20000 << std::endl;
+
+    // clip between 10 and 1000.
+    res500 = std::min(1000.0,std::max(10.0,res500));
+    res20000 = std::min(1000.0,std::max(10.0,res20000));
+
+    // update
+    p500 = 0.7 * p500 + 0.3 * res500;
+    p20000 = 0.7 * p20000 + 0.3 * res20000;
+
+    // send
+    snprintf(line1,200,"pings %d %d", (int)p500, (int)p20000);
+    std::cout << line1 << std::endl;
+    //if(rosThread != NULL) rosThread->publishCommand(line1);
+    //if(gui != NULL) gui->setPings((int)p500, (int)p20000);
+
+    // sleep 1s
+    r.sleep();
+    if(!ros::ok()) break;
+    r.sleep();
+    if(!ros::ok()) break;
+  }
+
+  std::cout << "Exiting PING Thread" << std::endl;
+}
 
 //Initialize the publishers that send the message over ROS topics. 
 //This is called in the constructor.
 void mqtt_bridge::initPublishers()
 {
   //The publisher for ROS image messages on tum_ardrone/image
-//  imagePub_ = it_.advertise("tum_ardrone/image", 1); 
+  //  imagePub_ = it_.advertise("tum_ardrone/image", 1); 
 }
 
 
@@ -64,6 +144,8 @@ mqtt_bridge::mqtt_bridge(const char *id, const char *host, int port, ros::NodeHa
   nh_(nh)
 {
   int keepalive = 60;
+  p500 = 25;
+  p20000 = 50;
 
   //initialize the img ros publishers
   initPublishers();
@@ -83,26 +165,21 @@ void mqtt_bridge::on_connect(int rc)
   ROS_INFO("Connected with code %d.\n", rc);
 }
 
-/* 
- * This is the function which handles the incoming images over MQTT.
- * The images are prefixed by a timestamp which is extracted and then
- * the image data is packed in a ROS Image_Transport message and published
- * over the ROS Topic /ardrone/image_raw
- */
-void mqtt_bridge::handlePingResponse(const struct mosquitto_message *message)
-{
-  ROS_INFO("Received ping message, not doing anything currently");
-}
-
 //When we receive a mqtt message, this callback is called. It just calls the responsible function
 //depending on the topic of the mqtt message that was received.
 void mqtt_bridge::on_message(const struct mosquitto_message *message)
 {
-	if(!strcmp(message->topic, "/mqtt/ping/request"))
-	{
-    uint8_t dummy[2];dummy[0] = '#';dummy[1] = '#';
-    publish(NULL, "/mqtt/ping/response", 1, dummy);
-	}
+  if(!strcmp(message->topic, "/mqtt/ping/request"))
+  {
+    if(message->payloadlen < 10000)//this is the p500 message
+    {
+      publish(NULL, "/mqtt/ping/response", 1, message->payload);
+    }
+    else //this is the p20000 msg
+    {
+      publish(NULL, "/mqtt/ping/response", 2, message->payload);
+    }
+  }
 }
 
 //Callback when the mosquitto library successfully subscribes to a topic
@@ -138,32 +215,26 @@ int main(int argc, char **argv)
   mqttBridge = new mqtt_bridge(CLIENTID.c_str(), broker.c_str(), brokerPort, nodeHandle);
   ROS_INFO("mqttBridge initialized..\n");
 
-	mqttBridge->subscribe(NULL, "/mqtt/ping/request");
+  mqttBridge->subscribe(NULL, "/mqtt/ping/request");
+
+  boost::thread _PingThread(&mqtt_bridge::PingFunction, mqttBridge);
 
   int rc;
 
-  ros::Rate rate(100);
-
   //Now we have set everything up. We just need to loop around and act as the Bridge between ROS and MQTT.
   while(ros::ok()){
-
-    //Pump all ROS callbacks. This function pushes all messages on the ROS subscribed topics and calls the appropriate callback
-    //which were defined during the subscribe call.
-    ros::spinOnce();
 
     //Pump all MQTT callbacks. This function pushes all messages on the MQTT Subscribed topics and calls the message_callback 
     //function defined for the mosquitto instance. The callback function handles different topics internally.
     rc = mqttBridge->loop();
 
-		if(rc){
-			mqttBridge->reconnect();
+    if(rc){
+      mqttBridge->reconnect();
     }
-
-    rate.sleep();
   }
 
   ROS_INFO("Disconnecting MQTT....\n");
-
+  _PingThread.join();
   //Cleanup the Connection
   mqttBridge->disconnect();
 

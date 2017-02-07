@@ -7,9 +7,11 @@
 
 #include "ros/ros.h"
 #include "ros/serialization.h"
+#include "std_msgs/Float32MultiArray.h"
 #include <mosquittopp.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/posix_time/posix_time_io.hpp>
+#include "boost/thread.hpp"
 
 std::string CLIENTID("mqttPingRequester");
 
@@ -24,6 +26,8 @@ class mqtt_bridge : public mosquittopp::mosquittopp
     //ros nodehandle to handle ROS Topics publishes and subscribes
     ros::NodeHandle nh_;
 
+    ros::Publisher bridgePub_;
+
   public:
 
     //The constructor
@@ -32,14 +36,8 @@ class mqtt_bridge : public mosquittopp::mosquittopp
     //The Destructor
     ~mqtt_bridge();
 
-    bool firstPingAcknowledged;
-    bool latestPingAcknowledged;
-    bool timeToSendNextPing;
-
-    uint32_t latestPingID;
-
-    boost::posix_time::ptime lastPingPosixTime;
-
+    boost::posix_time::ptime lastP500PosixTime;
+    boost::posix_time::ptime lastP20000PosixTime;
     //Callback for when the mqtt client is connected
     void on_connect(int rc);
 
@@ -55,7 +53,34 @@ class mqtt_bridge : public mosquittopp::mosquittopp
     //Callback reidrects here when a uncompressedImage message is received over MQTT. The timestamp is extracted and then 
     //the file is packaged into an imageTransport message and sent as a ROS topic.
     void handlePingResponse(const struct mosquitto_message *message);
+
+    void mqttPingFunction();
+
+    float lastp500;
+    float lastp20000;
+    std::vector<uint8_t> dummy20000;
+
+    std::vector<uint8_t> dummy500; 
+
+
 };
+
+
+void mqtt_bridge::mqttPingFunction()
+{
+  while(ros::ok())
+  {
+
+    lastP500PosixTime	= boost::posix_time::microsec_clock::local_time();
+    publish(NULL, "/mqtt/ping/request", dummy500.size(), dummy500.data());
+
+
+    lastP20000PosixTime = boost::posix_time::microsec_clock::local_time();
+    publish(NULL, "/mqtt/ping/request", dummy20000.size(), dummy20000.data());
+
+    sleep(1);
+  }
+}
 
 
 //Initialize the publishers that send the message over ROS topics. 
@@ -64,6 +89,7 @@ void mqtt_bridge::initPublishers()
 {
   //The publisher for ROS image messages on tum_ardrone/image
   //  imagePub_ = it_.advertise("tum_ardrone/image", 1); 
+  bridgePub_ = nh_.advertise<std_msgs::Float32MultiArray>("/mqtt_bridge/pings",1);
 }
 
 
@@ -71,17 +97,17 @@ void mqtt_bridge::initPublishers()
 //Intializes Variables, Intializes publishers, Connects the mqtt client.
 mqtt_bridge::mqtt_bridge(const char *id, const char *host, int port, ros::NodeHandle nh) : 
   mosquittopp(id),
-  nh_(nh)
+  nh_(nh),
+  dummy500(500,1),
+  dummy20000(20000,1)
 {
   int keepalive = 60;
 
   //initialize the img ros publishers
   initPublishers();
 
-  firstPingAcknowledged = false;
-  latestPingAcknowledged = false;
-
-  latestPingID = 0;
+  lastp500 = 0;
+  lastp20000 = 0;
 
   //Connect this class instance to the mqtt host and port.
   connect(host, port, keepalive);
@@ -108,9 +134,35 @@ void mqtt_bridge::handlePingResponse(const struct mosquitto_message *message)
 {
   boost::posix_time::ptime thisPosixTime	= boost::posix_time::microsec_clock::local_time();
 
-  boost::posix_time::time_duration diff = thisPosixTime - lastPingPosixTime;//boost::posix_time::time_from_string(str_time);//`latestPosixTime;
-  
-  ROS_INFO("delay: %f ms\n",(float)diff.total_microseconds()/1000.0);
+  std::cout << "payloadlen : " << message->payloadlen << std::endl;
+  float thisP500 = 0;
+  float thisP20000 = 0;
+
+
+  if(message->payloadlen <= 1) //this is the p500 msg
+  {
+    boost::posix_time::time_duration diff = thisPosixTime - lastP500PosixTime;
+    thisP500 = (float)diff.total_microseconds()/1000.0;
+
+    lastp500 = 0.7*lastp500 + 0.3*thisP500;
+  }
+  else
+  {
+    boost::posix_time::time_duration diff = thisPosixTime - lastP20000PosixTime;
+    thisP20000 = (float)diff.total_microseconds()/1000.0;
+
+    lastp20000 = 0.7*lastp20000 + 0.3*thisP20000;
+
+  }
+
+  std_msgs::Float32MultiArray msg;
+  msg.data.clear();
+  msg.data.push_back(lastp500);
+  msg.data.push_back(lastp20000);
+  bridgePub_.publish(msg);
+
+  std::cout << "this500 20000: " << thisP500 << " " << thisP20000 << std::endl;
+  std::cout << "msg500 20000: " << msg.data[0] << " " << msg.data[1] << std::endl;
 }
 
 //When we receive a mqtt message, this callback is called. It just calls the responsible function
@@ -158,42 +210,28 @@ int main(int argc, char **argv)
 
   mqttBridge->subscribe(NULL, "/mqtt/ping/response");
 
+  boost::thread _mqttPingThread(&mqtt_bridge::mqttPingFunction, mqttBridge);
+
   int rc;
 
-  int loop_rate = 1;
-  ros::Rate rate(loop_rate);
-
   //Now we have set everything up. We just need to loop around and act as the Bridge between ROS and MQTT.
+
   while(ros::ok()){
 
     //Pump all ROS callbacks. This function pushes all messages on the ROS subscribed topics and calls the appropriate callback
     //which were defined during the subscribe call.
-    ros::spinOnce();
+    // ros::spinOnce();
+    rc = mqttBridge->loop();
 
-    mqttBridge->latestPingID = mqttBridge->latestPingID + 1;
-
-    
-    uint8_t dummy[20000];dummy[0]='#';dummy[1]='#';
-    
-    mqttBridge->lastPingPosixTime	= boost::posix_time::microsec_clock::local_time();
-    mqttBridge->publish(NULL, "/mqtt/ping/request", 20000, dummy);
-
-    //std::cout << "Sent with: " << str_time << std::endl;
-    if(mqttBridge->latestPingID > 10000)
-    {
-      mqttBridge->latestPingID = 0;
-    }
     //Pump all MQTT callbacks. This function pushes all messages on the MQTT Subscribed topics and calls the message_callback 
     //function defined for the mosquitto instance. The callback function handles different topics internally.
-    rc = mqttBridge->loop();
 
     if(rc){
       mqttBridge->reconnect();
     }
 
-    rate.sleep();
   }
-
+  _mqttPingThread.join();
   ROS_INFO("Disconnecting MQTT....\n");
 
   //Cleanup the Connection
