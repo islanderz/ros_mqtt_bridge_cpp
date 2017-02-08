@@ -134,22 +134,33 @@ void mqtt_bridge::handlePingResponse(const struct mosquitto_message *message)
 {
   boost::posix_time::ptime thisPosixTime	= boost::posix_time::microsec_clock::local_time();
 
-  std::cout << "payloadlen : " << message->payloadlen << std::endl;
+  std::cout << "\npayloadlen : " << message->payloadlen << std::endl;
   float thisP500 = 0;
   float thisP20000 = 0;
 
 
-  if(message->payloadlen <= 1) //this is the p500 msg
+  if(message->payloadlen <= 4) //this is the p500 msg
   {
+    float dronePing500 = 10000.0;
+    memcpy(&dronePing500, message->payload, sizeof(float));
+    std::cout << "Recd. dronePing500: " << dronePing500 << " Adding to mqttPing" << std::endl;
+
+
     boost::posix_time::time_duration diff = thisPosixTime - lastP500PosixTime;
     thisP500 = (float)diff.total_microseconds()/1000.0;
+    thisP500 += dronePing500;
 
     lastp500 = 0.7*lastp500 + 0.3*thisP500;
   }
   else
   {
+    float dronePing20000 = 10000.0;
+    memcpy(&dronePing20000, message->payload, sizeof(float));
+    std::cout << "Recd. dronePing20000: " << dronePing20000 << " Adding to mqttPing" << std::endl;
+
     boost::posix_time::time_duration diff = thisPosixTime - lastP20000PosixTime;
     thisP20000 = (float)diff.total_microseconds()/1000.0;
+    thisP20000 += dronePing20000;
 
     lastp20000 = 0.7*lastp20000 + 0.3*thisP20000;
 
@@ -161,8 +172,8 @@ void mqtt_bridge::handlePingResponse(const struct mosquitto_message *message)
   msg.data.push_back(lastp20000);
   bridgePub_.publish(msg);
 
-  std::cout << "this500 20000: " << thisP500 << " " << thisP20000 << std::endl;
-  std::cout << "msg500 20000: " << msg.data[0] << " " << msg.data[1] << std::endl;
+  //std::cout << "this500 20000: " << thisP500 << " " << thisP20000 << std::endl;
+  std::cout << "new total ping 500 20000: " << msg.data[0] << " " << msg.data[1] << std::endl;
 }
 
 //When we receive a mqtt message, this callback is called. It just calls the responsible function

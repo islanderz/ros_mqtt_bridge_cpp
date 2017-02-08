@@ -43,18 +43,19 @@ class mqtt_bridge : public mosquittopp::mosquittopp
     //Set the image publisher over ROS. Called in the constructor.
     void initPublishers();
 
-    double p500;
-    double p20000;
+    float p500;
+    float  p20000;
     char pingCommand500[100];
     char pingCommand20000[100];
     char line1[200];
     char line2[200];
 
     void PingFunction();
-    double parsePingResult(std::string s);
+    float parsePingResult(std::string s);
+    uint8_t responseBuf[5];
 };
 
-double mqtt_bridge::parsePingResult(std::string s)
+float mqtt_bridge::parsePingResult(std::string s)
 {
   // 20008 bytes from localhost (127.0.0.1): icmp_req=1 ttl=64 time=0.075 ms
   int pos = s.find("time=");
@@ -74,8 +75,8 @@ void mqtt_bridge::PingFunction()
 
   sprintf(pingCommand20000,"ping -c 1 -s 20000 -w 1 192.168.1.1");
   sprintf(pingCommand500,"ping -c 1 -s 500 -w 1 192.168.1.1");
-  //	sprintf(pingCommand20000,"ping -c 1 -s 20000 -w 1 127.0.0.1");
-  //	sprintf(pingCommand500,"ping -c 1 -s 500 -w 1 127.0.0.1");
+//  	sprintf(pingCommand20000,"ping -c 1 -s 20000 -w 1 127.0.0.1");
+//  	sprintf(pingCommand500,"ping -c 1 -s 500 -w 1 127.0.0.1");
   ros::Rate r(2.0);
   FILE *p;
 
@@ -99,14 +100,14 @@ void mqtt_bridge::PingFunction()
     pclose(p);
 
     // parse results which should be in line1 and line2
-    double res500 = parsePingResult(line1);
-    double res20000 = parsePingResult(line2);
+    float res500 = parsePingResult(line1);
+    float res20000 = parsePingResult(line2);
 
     std::cout << "new ping values: 500->" << res500 << " 20000->" << res20000 << std::endl;
 
     // clip between 10 and 1000.
-    res500 = std::min(1000.0,std::max(10.0,res500));
-    res20000 = std::min(1000.0,std::max(10.0,res20000));
+    res500 = std::min(1000.0f,std::max(10.0f,res500));
+    res20000 = std::min(1000.0f,std::max(10.0f,res20000));
 
     // update
     p500 = 0.7 * p500 + 0.3 * res500;
@@ -173,12 +174,18 @@ void mqtt_bridge::on_message(const struct mosquitto_message *message)
   {
     if(message->payloadlen < 10000)//this is the p500 message
     {
-      publish(NULL, "/mqtt/ping/response", 1, message->payload);
+      memcpy(responseBuf, &p500, sizeof(float));
+      publish(NULL, "/mqtt/ping/response", sizeof(float), responseBuf);
     }
     else //this is the p20000 msg
     {
-      publish(NULL, "/mqtt/ping/response", 2, message->payload);
+      memcpy(responseBuf, &p20000, sizeof(float));
+      publish(NULL, "/mqtt/ping/response", sizeof(float) + 1, responseBuf);
     }
+
+    //clear the buffer
+    for(int i = 0; i < 5; i++)
+      responseBuf[i] = 0;
   }
 }
 
