@@ -34,5 +34,7 @@
         <param name="publishedMqttTopic_cmdvel" value="/mqtt/cmd_vel"/>
         <param name="subscribedRosTopic_cmdvel" value="/cmd_vel"/>
     </node>
+    <node name="mqttPingRequester" pkg="ros_mqtt_bridge_cpp" type="mqttPingRequester" output="screen" clear_params="true">
+    </node>
 </launch>
 
