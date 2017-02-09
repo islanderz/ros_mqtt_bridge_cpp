@@ -51,6 +51,9 @@ class mqtt_bridge : public mosquittopp::mosquittopp
     std::string publishedRosTopic_navdata;
     std::string subscribedMqttTopic_navdata;
 
+    int navDataCount;
+    double navDataDelayAverage;
+
 };
 
 
@@ -75,6 +78,9 @@ mqtt_bridge::mqtt_bridge(const char *id, const char *host, int port, ros::NodeHa
   publishedRosTopic_navdata = "/ardrone/navdata";
   subscribedMqttTopic_navdata = "/mqtt/navdata";
 
+  navDataCount = 0;
+  navDataDelayAverage = 0.0;
+
   //Connect this class instance to the mqtt host and port.
   connect(host, port, keepalive);
 };
@@ -93,6 +99,7 @@ void mqtt_bridge::on_connect(int rc)
 void mqtt_bridge::handleNavdata(const struct mosquitto_message *message)
 {
 
+
   ardrone_autonomy::Navdata navMsg;
 
   uint32_t file_size = message->payloadlen;
@@ -102,6 +109,20 @@ void mqtt_bridge::handleNavdata(const struct mosquitto_message *message)
   ros::serialization::deserialize(istream, navMsg);
 
   navdataPub_.publish(navMsg);
+
+  navDataCount += 1;
+  ros::Time timeNow = ros::Time::now();
+  ros::Duration diff = timeNow - navMsg.header.stamp;
+  //std::cout << std::fixed << timeNow << " " << navMsg.header.stamp << std::endl;
+  //std::cout << std::fixed << diff.toSec() << " " << diff.toNSec() << std::endl;
+
+  navDataDelayAverage += 1e-9*diff.toNSec();
+  if(navDataCount >= 200)
+  {
+    std::cout << std::fixed << "Average delay of last 200msgs: " << navDataDelayAverage/navDataCount << std::endl;
+    navDataCount = 0;
+    navDataDelayAverage = 0.0;
+  }
 
   return;
 }
