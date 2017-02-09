@@ -116,7 +116,7 @@ void mqtt_bridge::handleNavdata(const struct mosquitto_message *message)
   //std::cout << std::fixed << timeNow << " " << navMsg.header.stamp << std::endl;
   //std::cout << std::fixed << diff.toSec() << " " << diff.toNSec() << std::endl;
 
-  navDataDelayAverage += 1e-9*diff.toNSec();
+  navDataDelayAverage += diff.toSec();
   if(navDataCount >= 200)
   {
     std::cout << std::fixed << "Average delay of last 200msgs: " << navDataDelayAverage/navDataCount << std::endl;

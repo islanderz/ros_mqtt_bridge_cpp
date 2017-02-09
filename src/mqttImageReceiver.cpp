@@ -54,6 +54,8 @@ class mqtt_bridge : public mosquittopp::mosquittopp
     void handleUncompressedImage(const struct mosquitto_message *message);
     std::string publishedRosTopic_image;
     std::string subscribedMqttTopic_image;
+    double imgDelayAverage;
+    int imgCount;
 };
 
 
@@ -77,6 +79,8 @@ mqtt_bridge::mqtt_bridge(const char *id, const char *host, int port, ros::NodeHa
     
   publishedRosTopic_image = "/ardrone/image_raw";
   subscribedMqttTopic_image = "/mqtt/image";
+  imgDelayAverage = 0.0;
+  imgCount = 0;
 
   //Connect this class instance to the mqtt host and port.
   connect(host, port, keepalive);
@@ -110,6 +114,17 @@ void mqtt_bridge::handleUncompressedImage(const struct mosquitto_message *messag
   ros::serialization::deserialize(istream, image_msg);
 
   imagePub_.publish(image_msg);
+  ros::Time thisTime = ros::Time::now();
+  ros::Duration diff = thisTime - image_msg.header.stamp;
+  imgCount += 1;
+  imgDelayAverage += diff.toSec();
+  if(imgCount >= 30)
+  {
+    std::cout << std::fixed << "Average delay of last 30 image messages: " << imgDelayAverage/imgCount << std::endl;
+    imgCount = 0;
+    imgDelayAverage = 0.0;
+  }
+
   return;
 }
 
