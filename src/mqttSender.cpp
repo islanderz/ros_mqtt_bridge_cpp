@@ -10,6 +10,7 @@
 #include <mosquittopp.h>
 #include <image_transport/image_transport.h>
 #include <ardrone_autonomy/Navdata.h>
+#include <fstream>
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -26,6 +27,10 @@ class MQTTSender : public mosquittopp::mosquittopp
 
   public:
     //The constructor
+
+    ros::Subscriber vid_sub;
+    ros::Subscriber navdata_sub;
+
     MQTTSender(const char *id, const char *host, int port, ros::NodeHandle nh);
 
     //The Destructor
@@ -41,16 +46,22 @@ class MQTTSender : public mosquittopp::mosquittopp
     void on_subscribe(int mid, int qos_count, const int *granted_qos);
 
     //This is a callback for receiving a navdata msg over ROS. It is then sent over MQTT.
-    void navdataMessageCallback(const ardrone_autonomy::Navdata &msg);
+    void navdataMessageCallback(const ardrone_autonomy::NavdataConstPtr msg);
 
     //This is a callback for receiving an image msg over ROS. It is then sent over MQTT.
-    void imageMessageCallback(const sensor_msgs::Image &msg);
+    void imageMessageCallback(const sensor_msgs::ImageConstPtr msg);
 
     std::string subscribedRosTopic_image;
     std::string publishedMqttTopic_image;
 
     std::string subscribedRosTopic_navdata;
     std::string publishedMqttTopic_navdata;
+
+    std::ofstream log_file_ros_image_recv;
+    ros::Time last_ros_image_recv;
+
+    std::ofstream log_file_mqtt_image_send;
+    ros::Time last_mqtt_image_send;
 };
 
 //The Constructor
@@ -68,11 +79,28 @@ MQTTSender::MQTTSender(const char *id, const char *host, int port, ros::NodeHand
   publishedMqttTopic_navdata = "/mqtt/navdata";
   //Connect this class instance to the mqtt host and port.
   connect(host, port, keepalive);
+
+  ros::param::get("/mqttSender/subscribedRosTopic_navdata", subscribedRosTopic_navdata);
+  ros::param::get("/mqttSender/subscribedRosTopic_image", subscribedRosTopic_image);
+  
+  ros::param::get("/mqttSender/publishedMqttTopic_navdata", publishedMqttTopic_navdata);
+  ros::param::get("/mqttSender/publishedMqttTopic_image", publishedMqttTopic_image);
+
+	vid_sub = nh_.subscribe(subscribedRosTopic_image.c_str(), 10, &MQTTSender::imageMessageCallback, this);
+  navdata_sub = nh_.subscribe(subscribedRosTopic_navdata.c_str(), 10, &MQTTSender::navdataMessageCallback, this);
+
+  log_file_ros_image_recv.open("log_file_ros_image_recv.txt",std::ofstream::out | std::ofstream::app);
+  last_ros_image_recv = ros::Time::now();
+
+  log_file_mqtt_image_send.open("log_file_mqtt_image_send.txt",std::ofstream::out | std::ofstream::app);
+  last_mqtt_image_send = ros::Time::now();
 };
 
 //Destructor
 MQTTSender::~MQTTSender()
 {
+  log_file_ros_image_recv.close();
+  log_file_mqtt_image_send.close();
 }
 
 //Callback when the mqtt client successfully connects. rc = 0 means successful connection.
@@ -91,26 +119,35 @@ void MQTTSender::on_subscribe(int mid, int qos_count, const int *granted_qos)
   ROS_INFO("Subscription succeeded.\n");
 }
 
-void MQTTSender::navdataMessageCallback(const ardrone_autonomy::Navdata& msg)
+void MQTTSender::navdataMessageCallback(const ardrone_autonomy::NavdataConstPtr msg)
 {
-  uint32_t serial_size = ros::serialization::serializationLength(msg);
+  uint32_t serial_size = ros::serialization::serializationLength(*msg);
   boost::shared_array<uint8_t> obuffer(new uint8_t[serial_size]);
 
   ros::serialization::OStream ostream(obuffer.get(), serial_size);
-  ros::serialization::serialize(ostream, msg);
+  ros::serialization::serialize(ostream, *msg);
   publish(NULL, publishedMqttTopic_navdata.c_str(), serial_size, obuffer.get());
  
   return;
 }
-void MQTTSender::imageMessageCallback(const sensor_msgs::Image &msg)
+void MQTTSender::imageMessageCallback(const sensor_msgs::ImageConstPtr msg)
 {
-  uint32_t serial_size = ros::serialization::serializationLength(msg);
+  
+  log_file_ros_image_recv << std::fixed << (ros::Time::now() - last_ros_image_recv).toSec() << ", " << msg->header.seq << ", " << (msg->header.stamp).toSec() << std::endl;
+  last_ros_image_recv = ros::Time::now();
+
+//  sensor_msgs::Image new_msg = *msg;
+//  new_msg.header.stamp = ros::Time::now();
+
+  uint32_t serial_size = ros::serialization::serializationLength(*msg);
   boost::shared_array<uint8_t> obuffer(new uint8_t[serial_size]);
 
   ros::serialization::OStream ostream(obuffer.get(), serial_size);
-  ros::serialization::serialize(ostream, msg);
+  ros::serialization::serialize(ostream, *msg);
 
 	publish(NULL, publishedMqttTopic_image.c_str(), serial_size, obuffer.get());
+  log_file_mqtt_image_send << (ros::Time::now() - last_mqtt_image_send).toSec() << std::endl;
+  last_mqtt_image_send = ros::Time::now();
 
   return;
 }
@@ -140,16 +177,10 @@ int main(int argc, char **argv)
   mqttSender = new MQTTSender(CLIENTID.c_str(), broker.c_str(), brokerPort, nodeHandle);
   ROS_INFO("mqttSender initialized..\n");
   
-  ros::param::get("/mqttSender/subscribedRosTopic_navdata", mqttSender->subscribedRosTopic_navdata);
-  ros::param::get("/mqttSender/subscribedRosTopic_image", mqttSender->subscribedRosTopic_image);
-  
-  ros::param::get("/mqttSender/publishedMqttTopic_navdata", mqttSender->publishedMqttTopic_navdata);
-  ros::param::get("/mqttSender/publishedMqttTopic_image", mqttSender->publishedMqttTopic_image);
-
-	ros::Subscriber image_sub = nodeHandle.subscribe(mqttSender->subscribedRosTopic_image.c_str(), 1000, &MQTTSender::imageMessageCallback, mqttSender);
-  ros::Subscriber navdata_sub = nodeHandle.subscribe(mqttSender->subscribedRosTopic_navdata.c_str(), 1000, &MQTTSender::navdataMessageCallback, mqttSender);
  
   int rc;
+
+  ros::Rate rate(30);
 
   //Now we have set everything up. We just need to loop around and act as the Bridge between ROS and MQTT.
   while(ros::ok()){
@@ -160,12 +191,13 @@ int main(int argc, char **argv)
 
     //Pump all MQTT callbacks. This function pushes all messages on the MQTT Subscribed topics and calls the message_callback 
     //function defined for the mosquitto instance. The callback function handles different topics internally.
-    rc = mqttSender->loop();
+//    rc = mqttSender->loop();
 
     //If the mqtt connection is giving any troubles. Try to reconnect.
     if(rc){
       mqttSender->reconnect();
     }
+    rate.sleep();
   }
 
   ROS_INFO("Disconnecting MQTT....\n");
