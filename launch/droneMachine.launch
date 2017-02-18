@@ -26,6 +26,9 @@
     <node name="mqttSender" pkg="ros_mqtt_bridge_cpp" type="mqttSender" output="screen" clear_params="true">
         <!-- Make sure the topics published are subscribed with the exact name -->
 
+        <param name="ImagePublishFreq" value="30" /> 
+        <param name="NavdataPublishFreq" value="200" />
+
         <param name="subscribedRosTopic_image" value="/ardrone/image_raw"/>
         <param name="publishedMqttTopic_image" value="/mqtt/image"/>
 

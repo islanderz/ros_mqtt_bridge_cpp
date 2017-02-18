@@ -62,6 +62,9 @@ class MQTTSender : public mosquittopp::mosquittopp
 
     std::ofstream log_file_mqtt_image_send;
     ros::Time last_mqtt_image_send;
+
+    int navdataPublishFreq;
+    int imagePublishFreq;
 };
 
 //The Constructor
@@ -77,6 +80,16 @@ MQTTSender::MQTTSender(const char *id, const char *host, int port, ros::NodeHand
 
   subscribedRosTopic_navdata = "/ardrone/navdata";
   publishedMqttTopic_navdata = "/mqtt/navdata";
+  
+  imagePublishFreq = 30;
+  navdataPublishFreq = 200;
+
+  ros::param::get("/mqttSender/ImagePublishFreq", imagePublishFreq);
+  std::cout << "set ImagePublishFreq to " << imagePublishFreq << "Hz"<< std::endl;
+  
+  ros::param::get("/mqttSender/NavdataPublishFreq", navdataPublishFreq);
+  std::cout << "set NavdataPublishFreq to " << navdataPublishFreq << "Hz"<< std::endl;
+
   //Connect this class instance to the mqtt host and port.
   connect(host, port, keepalive);
 
@@ -180,7 +193,7 @@ int main(int argc, char **argv)
  
   int rc;
 
-  ros::Rate rate(30);
+  ros::Rate rate(mqttSender->imagePublishFreq);
 
   //Now we have set everything up. We just need to loop around and act as the Bridge between ROS and MQTT.
   while(ros::ok()){
@@ -194,9 +207,9 @@ int main(int argc, char **argv)
 //    rc = mqttSender->loop();
 
     //If the mqtt connection is giving any troubles. Try to reconnect.
-    if(rc){
-      mqttSender->reconnect();
-    }
+//    if(rc){
+//      mqttSender->reconnect();
+//    }
     rate.sleep();
   }
 
