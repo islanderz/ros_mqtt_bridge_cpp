@@ -9,6 +9,9 @@
 #include "ros/serialization.h"
 #include <mosquittopp.h>
 #include <ardrone_autonomy/Navdata.h>
+#include <fstream>
+#include <iomanip>
+#include <ctime>
 
 std::string CLIENTID("mqttNavdataReceiver");
 
@@ -54,6 +57,9 @@ class mqtt_bridge : public mosquittopp::mosquittopp
     int navDataCount;
     double navDataDelayAverage;
 
+    std::ofstream log_file_ros_nav_recv;
+    ros::Time last_ros_nav_recv;
+
 };
 
 
@@ -83,11 +89,29 @@ mqtt_bridge::mqtt_bridge(const char *id, const char *host, int port, ros::NodeHa
 
   //Connect this class instance to the mqtt host and port.
   connect(host, port, keepalive);
+
+  std::stringstream ss;
+  last_ros_nav_recv = ros::Time::now();
+
+  time_t rawtime;
+    struct tm * timeinfo;
+    char buffer[80];
+
+    time (&rawtime);
+    timeinfo = localtime(&rawtime);
+
+    strftime(buffer,80,"%d_%m_%Y_%H_%M_%S",timeinfo);
+    std::string str(buffer);
+
+  ss << "log_file_nav_av_delays_" << str << ".txt";
+  log_file_ros_nav_recv.open(ss.str(), std::ofstream::out | std::ofstream::app);
+
 };
 
 //Destructor
 mqtt_bridge::~mqtt_bridge()
 {
+	log_file_ros_nav_recv.close();
 }
 
 //Callback when the mqtt client successfully connects. rc = 0 means successful connection.
@@ -117,9 +141,15 @@ void mqtt_bridge::handleNavdata(const struct mosquitto_message *message)
   //std::cout << std::fixed << diff.toSec() << " " << diff.toNSec() << std::endl;
 
   navDataDelayAverage += diff.toSec();
+
+
+
   if(navDataCount >= 200)
   {
     std::cout << std::fixed << "Average delay of last 200msgs: " << navDataDelayAverage/navDataCount << std::endl;
+    log_file_ros_nav_recv << std::fixed << navDataDelayAverage/navDataCount << " " << std::endl;
+    last_ros_nav_recv = ros::Time::now();
+
     navDataCount = 0;
     navDataDelayAverage = 0.0;
   }
