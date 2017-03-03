@@ -9,6 +9,7 @@
 #include "ros/serialization.h"
 #include <mosquittopp.h>
 #include <image_transport/image_transport.h>
+#include <fstream>
 
 std::string CLIENTID("mqttImageReceiver");
 
@@ -56,6 +57,9 @@ class mqtt_bridge : public mosquittopp::mosquittopp
     std::string subscribedMqttTopic_image;
     double imgDelayAverage;
     int imgCount;
+
+    std::ofstream log_file_ros_image_recv;
+    ros::Time last_ros_image_recv;
 };
 
 
@@ -84,11 +88,29 @@ mqtt_bridge::mqtt_bridge(const char *id, const char *host, int port, ros::NodeHa
 
   //Connect this class instance to the mqtt host and port.
   connect(host, port, keepalive);
+
+  std::stringstream ss;
+  last_ros_image_recv = ros::Time::now();
+
+  time_t rawtime;
+    struct tm * timeinfo;
+    char buffer[80];
+
+    time (&rawtime);
+    timeinfo = localtime(&rawtime);
+
+    strftime(buffer,80,"%d_%m_%Y_%H_%M_%S",timeinfo);
+    std::string str(buffer);
+
+  ss << "log_file_image_av_delays_" << str << ".txt";
+  log_file_ros_image_recv.open(ss.str(), std::ofstream::out | std::ofstream::app);
+
 };
 
 //Destructor
 mqtt_bridge::~mqtt_bridge()
 {
+	log_file_ros_image_recv.close();
 }
 
 //Callback when the mqtt client successfully connects. rc = 0 means successful connection.
@@ -105,6 +127,9 @@ void mqtt_bridge::on_connect(int rc)
  */
 void mqtt_bridge::handleUncompressedImage(const struct mosquitto_message *message)
 {
+
+
+
   //Get the current time
   sensor_msgs::Image image_msg;
 
@@ -118,9 +143,16 @@ void mqtt_bridge::handleUncompressedImage(const struct mosquitto_message *messag
   ros::Duration diff = thisTime - image_msg.header.stamp;
   imgCount += 1;
   imgDelayAverage += diff.toSec();
+
+
+
   if(imgCount >= 30)
   {
     std::cout << std::fixed << "Average delay of last 30 image messages: " << imgDelayAverage/imgCount << std::endl;
+
+    log_file_ros_image_recv << std::fixed << imgDelayAverage/imgCount << " " << std::endl;
+    last_ros_image_recv = ros::Time::now();
+
     imgCount = 0;
     imgDelayAverage = 0.0;
   }
