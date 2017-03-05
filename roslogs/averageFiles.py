@@ -72,7 +72,7 @@ while i < len(navFiles):
     lineCount = lineCount + 1;
   i+=1;
 
-
+#displaying the error bar graph for images
 minPlusMax = [x+y for x,y in zip (minVidDelay, maxVidDelay) ]
 e = [x / 2 for x in minPlusMax]
 plt.ylabel('Averagea delay (sec)')
@@ -80,12 +80,20 @@ plt.xlabel('No of IMAGE messages')
 plt.errorbar(vidRange, totalVidAvg, e, linestyle='None', marker='^')
 plt.show()
 
-
+#displaying the error bar graph for navdata
 minPlusMax = [x+y for x,y in zip (minNavDelay, maxNavDelay) ]
 e = [x / 2 for x in minPlusMax]
 plt.ylabel('Averagea delay (sec)')
 plt.xlabel('No of Navdata messages')
 plt.errorbar(navRange, totalNavAvg, e, linestyle='None', marker='^')
+plt.show()
+
+#displaying the error bar graph for images and navdata combined
+plt.ylabel('Averagea delay (sec)')
+plt.xlabel('Time(sec). Displaying Images and Navdata Delays Combined')
+plt.errorbar(range(60), totalVidAvg, e, linestyle='None', marker='^', label='Video Messages')
+plt.errorbar(range(60), totalNavAvg, e, linestyle='None', marker='*', label='Navdata Messages')
+plt.legend()
 plt.show()
 
 plt.ylabel('Averagea delay (sec)')
