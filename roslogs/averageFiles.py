@@ -41,10 +41,11 @@ vidRange = range(0,1800,30);
 
 
 i = 0;
-maxNavDelay = 0;
-minNavDelay = 100000;
-maxVidDelay = 0;
-minVidDelay = 100000;
+maxNavDelay = [0 for x in range(60)]
+minNavDelay = [100000 for x in range(60)]
+maxVidDelay = [0 for x in range(60)]
+minVidDelay = [100000 for x in range(60)]
+
 while i < len(navFiles):
   navLines = [line.rstrip('\n') for line in open(navFiles[i])];
   vidLines = [line.rstrip('\n') for line in open(vidFiles[i])];
@@ -60,17 +61,32 @@ while i < len(navFiles):
     totalNavAvg[lineCount] += (float)(navLines[lineCount]);
     totalVidAvg[lineCount] += (float)(vidLines[lineCount]);
 
-    if(maxNavDelay < float(navLines[lineCount])):
-        maxNavDelay = float(navLines[lineCount]);
-    if(maxVidDelay < float(vidLines[lineCount])):
-        maxVidDelay = float(vidLines[lineCount]);
-    if(minVidDelay > float(vidLines[lineCount])):
-        minVidDelay = float(vidLines[lineCount]);
-    if(minNavDelay > float(navLines[lineCount])):
-        minNavDelay = float(navLines[lineCount]);
+    if(maxNavDelay[lineCount] < float(navLines[lineCount])):
+        maxNavDelay[lineCount] = float(navLines[lineCount]);
+    if(maxVidDelay[lineCount] < float(vidLines[lineCount])):
+        maxVidDelay[lineCount] = float(vidLines[lineCount]);
+    if(minVidDelay[lineCount] > float(vidLines[lineCount])):
+        minVidDelay[lineCount] = float(vidLines[lineCount]);
+    if(minNavDelay[lineCount] > float(navLines[lineCount])):
+        minNavDelay[lineCount] = float(navLines[lineCount]);
     lineCount = lineCount + 1;
   i+=1;
 
+
+minPlusMax = [x+y for x,y in zip (minVidDelay, maxVidDelay) ]
+e = [x / 2 for x in minPlusMax]
+plt.ylabel('Averagea delay (sec)')
+plt.xlabel('No of IMAGE messages')
+plt.errorbar(vidRange, totalVidAvg, e, linestyle='None', marker='^')
+plt.show()
+
+
+minPlusMax = [x+y for x,y in zip (minNavDelay, maxNavDelay) ]
+e = [x / 2 for x in minPlusMax]
+plt.ylabel('Averagea delay (sec)')
+plt.xlabel('No of Navdata messages')
+plt.errorbar(navRange, totalNavAvg, e, linestyle='None', marker='^')
+plt.show()
 
 plt.ylabel('Averagea delay (sec)')
 plt.xlabel('No of IMAGE messages')
@@ -82,4 +98,4 @@ plt.xlabel('No of Navdata messages')
 plt.plot(navRange,totalNavAvg)
 plt.show()
 
-#print len([name for name in os.listdir('.') if os.path.isfile(name)])
+#print len([name for name in    os.listdir('.') if os.path.isfile(name)])
