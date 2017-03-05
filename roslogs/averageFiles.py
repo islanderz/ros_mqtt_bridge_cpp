@@ -33,102 +33,53 @@ if(len(navFiles) != len(vidFiles)):
 i = 0;
 
 
-totalNavAvg = [0]*60;
-totalVidAvg = [0]*60;
+totalNavAvg = [0 for x in range(60)]
+totalVidAvg = [0 for x in range(60)]
+
+navRange = range(0,12000,200);
+vidRange = range(0,1800,30);
 
 
+i = 0;
+maxNavDelay = 0;
+minNavDelay = 100000;
+maxVidDelay = 0;
+minVidDelay = 100000;
 while i < len(navFiles):
-  navF = open(navFiles[i], 'rt');
-  vidF = open(vidFiles[i], 'rt');
+  navLines = [line.rstrip('\n') for line in open(navFiles[i])];
+  vidLines = [line.rstrip('\n') for line in open(vidFiles[i])];
+
   navDelays = [];
   vidDelays = [];
 
-  #Reading the nav and vid files
-  navReader = csv.reader(navF, delimiter=" ");
-  vidReader = csv.reader(navF, delimiter=" ");
-  #skip the headers
-  next(navReader, None)
-  next(vidReader, None)
-  navCount = 0;
-  vidCount = 0;
+  lineCount = 0;
+  while lineCount < 60:
+    navDelays.append(float(navLines[lineCount]));
+    vidDelays.append(float(vidLines[lineCount]));
 
-  #Extracting first 12000 for nav and 1800 for vid
-  for row in navReader:
-    navDelays.append(row[0]);
-    navCount+=1;
-    if(navCount >= 12000):
-      break;
-  for row in vidReader:
-    vidDelays.append(row[0]);
-    vidCount+=1;
-    if(vidCount >= 1000):
-      break;
-  navF.close();
-  vidF.close();
-  navAvgDelays = [];
-  vidAvgDelays = [];
-  idx = 0;
+    totalNavAvg[lineCount] += (float)(navLines[lineCount]);
+    totalVidAvg[lineCount] += (float)(vidLines[lineCount]);
 
-  #Averaging over 200 navdata
-  while(idx < 12000):
-    totDelay = 0;
-    for num in range(idx, idx + 200):
-      totDelay += float(navDelays[num]);
-    navAvgDelays.append(totDelay/200);
-    idx += 200;
-  idx = 0;
-
-  #Averaging over 30 vidData
-  while(idx < 300):
-    totDelay = 0;
-    for num in range(idx, idx + 30):
-      totDelay += float(vidDelays[num]);
-    vidAvgDelays.append(totDelay/30);
-    idx += 30;
-  #print len(navAvgDelays);
-  #print len(vidAvgDelays);
-
-  #Adding to the total average Delays
-  totalNavAvg = map(add, totalNavAvg, navAvgDelays);
-  totalVidAvg = map(add, totalVidAvg, vidAvgDelays);
+    if(maxNavDelay < float(navLines[lineCount])):
+        maxNavDelay = float(navLines[lineCount]);
+    if(maxVidDelay < float(vidLines[lineCount])):
+        maxVidDelay = float(vidLines[lineCount]);
+    if(minVidDelay > float(vidLines[lineCount])):
+        minVidDelay = float(vidLines[lineCount]);
+    if(minNavDelay > float(navLines[lineCount])):
+        minNavDelay = float(navLines[lineCount]);
+    lineCount = lineCount + 1;
   i+=1;
-
-#Opening the average files to write
-navAvgFile = open("AvgFileNav.csv", 'wt');
-vidAvgFile = open("AvgFileVid.csv", 'wt');
-
-print "Output Written to AvgFileNav.csv and AvgFileVid.csv"
-
-navWriter = csv.writer(navAvgFile);
-navWriter.writerow( ('Range','AvgDelay','Abs(AvgDelay)') );
-vidWriter = csv.writer(vidAvgFile);
-vidWriter.writerow( ('Range','AvgDelay', 'Abs(AvgDelay)') );
-
-idx = 0;
-numMessages = []
-numDelay = []
-numMessagesVid = []
-numDelayVid = []
-
-
-while idx < len(totalNavAvg):
-  #print (str(200*idx)+'-'+str(200*(idx+1)), totalNavAvg[idx]/len(navFiles), abs(totalNavAvg[idx])/len(navFiles)  )
-  navWriter.writerow ( (str(200*idx)+'-'+str(200*(idx+1)),  abs(totalNavAvg[idx])/len(navFiles)  ));
-  vidWriter.writerow ( (str(30*idx)+'-'+str(30*(idx+1)), abs(totalVidAvg[idx])/len(vidFiles) ));
-  numMessages.append(200*(idx+1))
-  numMessagesVid.append(30*(idx+1))
-  numDelay.append(abs(totalNavAvg[idx])/len(navFiles))
-  numDelayVid.append(abs(totalVidAvg[idx])/len(vidFiles))
-  idx+=1;
 
 
 plt.ylabel('Averagea delay (sec)')
 plt.xlabel('No of IMAGE messages')
-axes = plt.gca()
-axes.set_ylim([0.34,0.38])
- 	
-plt.plot(numMessagesVid,numDelayVid)
+plt.plot(vidRange,totalVidAvg)
 plt.show()
 
+plt.ylabel('Averagea delay (sec)')
+plt.xlabel('No of Navdata messages')
+plt.plot(navRange,totalNavAvg)
+plt.show()
 
 #print len([name for name in os.listdir('.') if os.path.isfile(name)])
