@@ -109,4 +109,7 @@ plt.xlabel('No of Navdata messages')
 plt.plot(navRange,totalNavAvg)
 plt.show()
 
+plt.boxplot(totalNavAvg,0, '');
+plt.show()
+
 #print len([name for name in    os.listdir('.') if os.path.isfile(name)])
