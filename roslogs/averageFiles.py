@@ -39,6 +39,8 @@ totalVidAvg = [0 for x in range(60)]
 navRange = range(0,12000,200);
 vidRange = range(0,1800,30);
 
+AllNavAvg = np.zeros((60,1));
+AllVidAvg = np.zeros((60,1));
 
 i = 0;
 maxNavDelay = [0 for x in range(60)]
@@ -50,16 +52,17 @@ while i < len(navFiles):
   navLines = [line.rstrip('\n') for line in open(navFiles[i])];
   vidLines = [line.rstrip('\n') for line in open(vidFiles[i])];
 
-  navDelays = [];
-  vidDelays = [];
+  navDelays = np.zeros((60,1));
+  vidDelays = np.zeros((60,1));
 
   lineCount = 0;
   while lineCount < 60:
-    navDelays.append(float(navLines[lineCount]));
-    vidDelays.append(float(vidLines[lineCount]));
+    navDelays[lineCount] = float(navLines[lineCount]);
+    vidDelays[lineCount] = float(vidLines[lineCount]);
 
     totalNavAvg[lineCount] += (float)(navLines[lineCount]);
     totalVidAvg[lineCount] += (float)(vidLines[lineCount]);
+
 
     if(maxNavDelay[lineCount] < float(navLines[lineCount])):
         maxNavDelay[lineCount] = float(navLines[lineCount]);
@@ -71,7 +74,13 @@ while i < len(navFiles):
         minNavDelay[lineCount] = float(navLines[lineCount]);
     lineCount = lineCount + 1;
   i+=1;
+  navDelays = np.vstack(navDelays);
+  vidDelays = np.vstack(vidDelays);
+  AllNavAvg = np.hstack((AllNavAvg, np.asarray(navDelays)));
+  AllVidAvg = np.hstack((AllVidAvg, np.asarray(vidDelays)));
 
+AllNavAvg = AllNavAvg[:,1:];
+AllVidAvg = AllVidAvg[:,1:];
 totalNavAvg = [ x/len(navFiles) for x in totalNavAvg];
 totalVidAvg = [ x/len(vidFiles) for x in totalVidAvg];
 
@@ -107,9 +116,13 @@ plt.show()
 plt.ylabel('Averagea delay (sec)')
 plt.xlabel('No of Navdata messages')
 plt.plot(navRange,totalNavAvg)
+plt.show();
+
+plt.boxplot(AllVidAvg,0,'-');
+#plt.boxplot(AllVidAvg);
 plt.show()
 
-plt.boxplot(totalNavAvg,0, '');
+plt.boxplot(AllNavAvg,0,'-');
+#plt.boxplot(AllNavAvg);
 plt.show()
-
 #print len([name for name in    os.listdir('.') if os.path.isfile(name)])
