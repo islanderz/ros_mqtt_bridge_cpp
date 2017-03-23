@@ -187,6 +187,9 @@ void mqtt_bridge::handlePingResponse(const struct mosquitto_message *message)
     mqttPing500 << std::fixed << thisP500 << std::endl;
     thisP500 += dronePing500;
 
+    // Since we don't want to trust the latest value completely, we average it out based on the prev value
+    // A slightly larger weight is assigned to the prev value since it was calculated using several prev delays
+    // This also smooths out the delay being fed into the Kalman Filter, so that the filter doesn't observe big jumps
     lastp500 = 0.7*lastp500 + 0.3*thisP500;
   }
   else
@@ -202,6 +205,9 @@ void mqtt_bridge::handlePingResponse(const struct mosquitto_message *message)
 
     wifiPing20000 << std::fixed << dronePing20000 << std::endl;
 
+    // Since we don't want to trust the latest value completely, we average it out based on the prev value
+    // A slightly larger weight is assigned to the prev value since it was calculated using several prev delays
+    // This also smooths out the delay being fed into the Kalman Filter, so that the filter doesn't observe big jumps
     lastp20000 = 0.7*lastp20000 + 0.3*thisP20000;
 
   }
