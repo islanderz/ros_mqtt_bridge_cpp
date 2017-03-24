@@ -28,29 +28,29 @@ for row in filterReader:
      break;
 filterFile.close();
 
-imuFile = open("logPTAM.txt", 'rt');
+ptamFile = open("logPTAM.txt", 'rt');
 #kfFile = open("logFilter.txt", 'rt');
 #kfData = [];
-imuData = [];
-imuDataVel = [];
+ptamData = [];
+ptamDataVel = [];
 
 #Reading the IMU and KF files
-imuReader = csv.reader(imuFile, delimiter=" ");
+imuReader = csv.reader(ptamFile, delimiter=" ");
 #kfReader = csv.reader(kfFile, delimiter=" ");
  
-imuCount = 0;
+ptamCount = 0;
 #kfCount = 0;
 
 #Extracting first 1899 for nav and 1800 for vid
 for row in imuReader: 
    roundedtime = str(row[1])[:5];
-   #imuData.append(int(roundedtime));
-   imuData.append(int(row[1]));
-   #imuData.append(row[1]);
-   imuDataVel.append(row[2]);
+   #ptamData.append(int(roundedtime));
+   ptamData.append(int(row[1]));
+   #ptamData.append(row[1]);
+   ptamDataVel.append(row[22]);
    #print(row[0]);
-   imuCount+=1;
-   if(imuCount >= 5000):
+   ptamCount+=1;
+   if(ptamCount >= 5000):
      break;
 #for row in kfReader:
    #if (row[14] != -1):
@@ -60,7 +60,7 @@ for row in imuReader:
 #   kfCount+=1;
 #   if(kfCount >= 800):
 #     break;
-imuFile.close();
+ptamFile.close();
 #kfFIle.close();
 
 
@@ -74,10 +74,10 @@ axes = plt.gca()
 #axes.set_ylim([0.34,0.38])
  	
 filterDataTime = [( x - filterDataTime[0]) for x in filterDataTime];
-imuData = [(x - imuData[0]) for x in imuData];
+ptamData = [(x - ptamData[0]) for x in ptamData];
     
-plt.plot(filterDataTime,filterDataYaxis,'b-',label="filterData");
-plt.plot(imuData,imuDataVel,'r',label="imuData");
+plt.plot(filterDataTime,filterDataYaxis,'b-',label="(Ground Truth) filterData");
+plt.plot(ptamData,ptamDataVel,'r',label="(Predicted) ptamData");
 plt.legend();
 
 plt.show()
