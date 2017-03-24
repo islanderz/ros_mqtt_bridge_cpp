@@ -39,6 +39,8 @@ class mqtt_bridge : public mosquittopp::mosquittopp
 
     boost::posix_time::ptime lastP500PosixTime;
     boost::posix_time::ptime lastP20000PosixTime;
+    
+    std::stringstream all_delays;	
     //Callback for when the mqtt client is connected
     void on_connect(int rc);
 
@@ -63,10 +65,7 @@ class mqtt_bridge : public mosquittopp::mosquittopp
 
     std::vector<uint8_t> dummy500;
 
-    std::ofstream wifiPing500;
-    std::ofstream wifiPing20000;
-    std::ofstream mqttPing500;
-    std::ofstream mqttPing20000;
+    std::ofstream wifiMqttPing;
 };
 
 
@@ -127,31 +126,15 @@ mqtt_bridge::mqtt_bridge(const char *id, const char *host, int port, ros::NodeHa
     strftime(buffer,80,"%d_%m_%Y_%H_%M_%S",timeinfo);
     std::string str(buffer);
 
-  filename << "log_file_wifiPing500_" << str << ".txt";
-  wifiPing500.open(filename.str(), std::ofstream::out | std::ofstream::app);
-
   filename.str("");filename.clear();
-
-  filename << "log_file_wifiPing20000_" << str << ".txt";
-  wifiPing20000.open(filename.str(), std::ofstream::out | std::ofstream::app);
-  
-  filename.str("");filename.clear();
-  filename << "log_file_mqttPing500_" << str << ".txt";
-  mqttPing500.open(filename.str(), std::ofstream::out | std::ofstream::app);
-
-  filename.str("");filename.clear();
-  filename << "log_file_mqttPing20000_" << str << ".txt";
-  mqttPing20000.open(filename.str(), std::ofstream::out | std::ofstream::app);
-
+  filename << "ping_mqtt_wifi_" << str << ".txt";
+  wifiMqttPing.open(filename.str(), std::ofstream::out | std::ofstream::app);
 };
 
 //Destructor
 mqtt_bridge::~mqtt_bridge()
 {
-    wifiPing500.close();
-    wifiPing20000.close();
-    mqttPing500.close();
-    mqttPing20000.close();
+    wifiMqttPing.close();
 }
 
 //Callback when the mqtt client successfully connects. rc = 0 means successful connection.
@@ -177,17 +160,19 @@ void mqtt_bridge::handlePingResponse(const struct mosquitto_message *message)
 
   if(message->payloadlen <= 4) //this is the p500 msg
   {
+    all_delays.str( std::string() );
+    all_delays.clear();
     float dronePing500 = 10000.0;
     memcpy(&dronePing500, message->payload, sizeof(float));
  //   std::cout << "Recd. dronePing500: " << dronePing500 << " Adding to mqttPing" << std::endl;
-    wifiPing500 << std::fixed << dronePing500 << std::endl;
-
+    
     boost::posix_time::time_duration diff = thisPosixTime - lastP500PosixTime;
     thisP500 = (float)diff.total_microseconds()/1000.0;
-    mqttPing500 << std::fixed << thisP500 << std::endl;
     thisP500 += dronePing500;
 
     lastp500 = 0.7*lastp500 + 0.3*thisP500;
+    
+    all_delays << thisP500;
   }
   else
   {
@@ -197,13 +182,11 @@ void mqtt_bridge::handlePingResponse(const struct mosquitto_message *message)
 
     boost::posix_time::time_duration diff = thisPosixTime - lastP20000PosixTime;
     thisP20000 = (float)diff.total_microseconds()/1000.0;
-    mqttPing20000 << std::fixed << thisP20000 << std::endl;
     thisP20000 += dronePing20000;
 
-    wifiPing20000 << std::fixed << dronePing20000 << std::endl;
-
     lastp20000 = 0.7*lastp20000 + 0.3*thisP20000;
-
+    all_delays << " " << thisP20000 << " " << lastp500 << " "<< lastp20000;
+    wifiMqttPing << all_delays.str() << std::endl;
   }
 
   std_msgs::Float32MultiArray msg;
