@@ -168,11 +168,16 @@ void mqtt_bridge::handlePingResponse(const struct mosquitto_message *message)
     
     boost::posix_time::time_duration diff = thisPosixTime - lastP500PosixTime;
     thisP500 = (float)diff.total_microseconds()/1000.0;
+    all_delays << thisP500;
     thisP500 += dronePing500;
+    all_delays << " " << thisP500;
 
+    // Since we don't want to trust the latest value completely, we average it out based on the prev value
+    // A slightly larger weight is assigned to the prev value since it was calculated using several prev delays
+    // This also smooths out the delay being fed into the Kalman Filter, so that the filter doesn't observe big jumps
     lastp500 = 0.7*lastp500 + 0.3*thisP500;
     
-    all_delays << thisP500;
+    
   }
   else
   {
@@ -182,10 +187,15 @@ void mqtt_bridge::handlePingResponse(const struct mosquitto_message *message)
 
     boost::posix_time::time_duration diff = thisPosixTime - lastP20000PosixTime;
     thisP20000 = (float)diff.total_microseconds()/1000.0;
+    all_delays << " " << thisP20000;
     thisP20000 += dronePing20000;
+    all_delays << " " << thisP20000;
 
+    // Since we don't want to trust the latest value completely, we average it out based on the prev value
+    // A slightly larger weight is assigned to the prev value since it was calculated using several prev delays
+    // This also smooths out the delay being fed into the Kalman Filter, so that the filter doesn't observe big jumps
     lastp20000 = 0.7*lastp20000 + 0.3*thisP20000;
-    all_delays << " " << thisP20000 << " " << lastp500 << " "<< lastp20000;
+    
     wifiMqttPing << all_delays.str() << std::endl;
   }
 
