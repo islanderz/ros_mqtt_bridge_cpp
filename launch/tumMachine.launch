@@ -4,9 +4,10 @@
     
     <param name="mqttBroker" value="localhost" />
     <param name="mqttBrokerPort" value="1883" />
+    <param name="offset" value="0" />
 
     <node name="mqttImageReceiver" pkg="ros_mqtt_bridge_cpp" type="mqttImageReceiver" output="screen" clear_params="true">
-        <param name="loop_rate" value="30" />
+        <param name="loop_rate" value="35" />
 
         <param name="publishedRosTopic_image" value="/tum_ardrone/image"/>
         <param name="subscribedMqttTopic_image" value="/mqtt/image"/>
@@ -34,7 +35,7 @@
         <param name="publishedMqttTopic_cmdvel" value="/mqtt/cmd_vel"/>
         <param name="subscribedRosTopic_cmdvel" value="/cmd_vel"/>
     </node>
-    <!-- <node name="mqttPingRequester" pkg="ros_mqtt_bridge_cpp" type="mqttPingRequester" output="screen" clear_params="true"> -->
-    <!-- </node> -->
+    <node name="mqttPingRequester" pkg="ros_mqtt_bridge_cpp" type="mqttPingRequester" output="screen" clear_params="true">
+    </node>
 </launch>
 

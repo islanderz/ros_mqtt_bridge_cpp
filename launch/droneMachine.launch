@@ -36,7 +36,7 @@
         <param name="publishedMqttTopic_navdata" value="/mqtt/navdata"/>
 
     </node>
-   <!--  <node name="mqttPingResponder" pkg="ros_mqtt_bridge_cpp" type="mqttPingResponder" output="screen" clear_params="true"> -->
-   <!--  </node> -->
+   <node name="mqttPingRequester" pkg="ros_mqtt_bridge_cpp" type="mqttPingRequester" output="screen" clear_params="true">
+   </node>
 </launch>
 

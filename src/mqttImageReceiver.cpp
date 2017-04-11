@@ -13,6 +13,7 @@
 
 std::string CLIENTID("mqttImageReceiver");
 
+
 /*
  * Extend class mosquittopp from the /usr/include/mosquittopp.h file 
  * This class provides all the basic functions for mqtt and 
@@ -146,11 +147,15 @@ void mqtt_bridge::handleUncompressedImage(const struct mosquitto_message *messag
 
 
 
+
   if(imgCount >= 30)
   {
+	int offset = 0;
+	nh_.getParam("/offset", offset);
+
     std::cout << std::fixed << "Average delay of last 30 image messages: " << imgDelayAverage/imgCount << std::endl;
 
-    log_file_ros_image_recv << std::fixed << imgDelayAverage/imgCount << " " << std::endl;
+    log_file_ros_image_recv << std::fixed << (imgDelayAverage/imgCount) - offset << " " << std::endl;
     last_ros_image_recv = ros::Time::now();
 
     imgCount = 0;

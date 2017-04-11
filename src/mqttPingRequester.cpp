@@ -153,15 +153,15 @@ void mqtt_bridge::handlePingResponse(const struct mosquitto_message *message)
 {
   boost::posix_time::ptime thisPosixTime	= boost::posix_time::microsec_clock::local_time();
 
-  std::cout << "\npayloadlen : " << message->payloadlen << std::endl;
+  // std::cout << "\npayloadlen : " << message->payloadlen << std::endl;
   float thisP500 = 0;
   float thisP20000 = 0;
 
-
   if(message->payloadlen <= 4) //this is the p500 msg
   {
-    all_delays.str( std::string() );
-    all_delays.clear();
+	all_delays.str( std::string() );
+	all_delays.clear();
+
     float dronePing500 = 10000.0;
     memcpy(&dronePing500, message->payload, sizeof(float));
  //   std::cout << "Recd. dronePing500: " << dronePing500 << " Adding to mqttPing" << std::endl;
@@ -175,8 +175,8 @@ void mqtt_bridge::handlePingResponse(const struct mosquitto_message *message)
     // Since we don't want to trust the latest value completely, we average it out based on the prev value
     // A slightly larger weight is assigned to the prev value since it was calculated using several prev delays
     // This also smooths out the delay being fed into the Kalman Filter, so that the filter doesn't observe big jumps
-    lastp500 = 0.7*lastp500 + 0.3*thisP500;
-    
+    //lastp500 = 0.7*lastp500 + 0.3*thisP500;
+    lastp500 = thisP500;
     
   }
   else
@@ -194,10 +194,13 @@ void mqtt_bridge::handlePingResponse(const struct mosquitto_message *message)
     // Since we don't want to trust the latest value completely, we average it out based on the prev value
     // A slightly larger weight is assigned to the prev value since it was calculated using several prev delays
     // This also smooths out the delay being fed into the Kalman Filter, so that the filter doesn't observe big jumps
-    lastp20000 = 0.7*lastp20000 + 0.3*thisP20000;
-    
-    wifiMqttPing << all_delays.str() << std::endl;
+    // lastp20000 = 0.7*lastp20000 + 0.3*thisP20000;
+    lastp20000 = thisP20000;
+    wifiMqttPing << std::fixed  << all_delays.str() << std::endl;
+    //std::cout <<" ALL DELAYS " << all_delays.str() << std::endl;
   }
+
+
 
   std_msgs::Float32MultiArray msg;
   msg.data.clear();

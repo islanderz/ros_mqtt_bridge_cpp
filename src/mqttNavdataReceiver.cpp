@@ -147,7 +147,11 @@ void mqtt_bridge::handleNavdata(const struct mosquitto_message *message)
   if(navDataCount >= 200)
   {
     std::cout << std::fixed << "Average delay of last 200msgs: " << navDataDelayAverage/navDataCount << std::endl;
-    log_file_ros_nav_recv << std::fixed << navDataDelayAverage/navDataCount << " " << std::endl;
+
+    int offset = 0;
+    nh_.getParam("/offset", offset);
+
+    log_file_ros_nav_recv << std::fixed << (navDataDelayAverage/navDataCount) - offset<< " " << std::endl;
     last_ros_nav_recv = ros::Time::now();
 
     navDataCount = 0;
