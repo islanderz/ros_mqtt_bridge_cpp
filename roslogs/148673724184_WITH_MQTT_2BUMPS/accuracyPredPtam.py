@@ -1,0 +1,86 @@
+#!/usr/bin/python
+
+import numpy as np
+import matplotlib.pyplot as plt
+import os, os.path
+import csv
+from operator import add
+
+print "Processing ",
+
+filterFile = open("logFilter.txt", 'rt');
+
+filterDataTime = [];
+filterDataYaxis = [];
+
+#Reading the IMU and KF files
+filterReader = csv.reader(filterFile, delimiter=" ");  
+ 
+filterCount = 0;
+
+#Extracting first 20 000
+for row in filterReader:
+   #if (int(row[0]) >= 360000 | int(row[0]) <= 430000):  
+   filterDataTime.append(int(row[0]));
+   filterDataYaxis.append(row[17]);
+   #print(row[0]);
+   filterCount+=1;
+   if(filterCount >= 10000):
+     break;
+filterFile.close();
+
+ptamFile = open("logPTAM.txt", 'rt');
+#kfFile = open("logFilter.txt", 'rt');
+#kfData = [];
+ptamData = [];
+ptamDataVel = [];
+
+#Reading the IMU and KF files
+imuReader = csv.reader(ptamFile, delimiter=" ");
+#kfReader = csv.reader(kfFile, delimiter=" ");
+ 
+ptamCount = 0;
+#kfCount = 0;
+
+#Extracting first 2 000 
+for row in imuReader: 
+   roundedtime = str(row[1])[:5];
+   #if (int(row[1]) >= 360000 | int(row[1]) <= 430000):   
+   #ptamData.append(int(roundedtime));
+   ptamData.append(int(row[1]));
+   #ptamData.append(row[1]);
+   ptamDataVel.append(row[22]);
+   #print(row[0]);
+   ptamCount+=1;
+   if(ptamCount >= 1800):
+     break;
+#for row in kfReader:
+   #if (row[14] != -1):
+   #kfData.append(row[14]);
+#   kfData.append(row[14]);
+   #print(row[5]);
+#   kfCount+=1;
+#   if(kfCount >= 800):
+#     break;
+ptamFile.close();
+#kfFIle.close();
+
+
+idx = 0;
+
+plt.figure(1);
+#plt.subplot(211)e
+plt.ylabel('Predicted x(metric)')
+plt.xlabel('Time (ms)')
+axes = plt.gca()
+#axes.set_ylim([-0.34,1.7])
+axes.set_xlim([0,25000])
+
+filterDataTime = [( x - filterDataTime[0]) for x in filterDataTime];
+ptamData = [(x - ptamData[0]) for x in ptamData];
+    
+plt.plot(filterDataTime,filterDataYaxis,'b-',label="(Ground Truth) filterData");
+plt.plot(ptamData,ptamDataVel,'r',label="(Predicted) ptamData");
+plt.legend();
+
+plt.show()

@@ -18,8 +18,9 @@ filterReader = csv.reader(filterFile, delimiter=" ");
  
 filterCount = 0;
 
-#Extracting first 1899 for nav and 1800 for vid
-for row in filterReader: 
+#Extracting first 20 000
+for row in filterReader:
+   #if (int(row[0]) >= 360000 | int(row[0]) <= 430000):  
    filterDataTime.append(int(row[0]));
    filterDataYaxis.append(row[17]);
    #print(row[0]);
@@ -41,16 +42,17 @@ imuReader = csv.reader(ptamFile, delimiter=" ");
 ptamCount = 0;
 #kfCount = 0;
 
-#Extracting first 1899 for nav and 1800 for vid
+#Extracting first 2 000 
 for row in imuReader: 
    roundedtime = str(row[1])[:5];
+   #if (int(row[1]) >= 360000 | int(row[1]) <= 430000):   
    #ptamData.append(int(roundedtime));
    ptamData.append(int(row[1]));
    #ptamData.append(row[1]);
    ptamDataVel.append(row[22]);
    #print(row[0]);
    ptamCount+=1;
-   if(ptamCount >= 5000):
+   if(ptamCount >= 1800):
      break;
 #for row in kfReader:
    #if (row[14] != -1):
@@ -67,12 +69,13 @@ ptamFile.close();
 idx = 0;
 
 plt.figure(1);
-#plt.subplot(211)
+#plt.subplot(211)e
 plt.ylabel('Predicted x(metric)')
 plt.xlabel('Time (ms)')
 axes = plt.gca()
-#axes.set_ylim([0.34,0.38])
- 	
+axes.set_ylim([-0.34,1.7])
+axes.set_xlim([10000,25000])
+
 filterDataTime = [( x - filterDataTime[0]) for x in filterDataTime];
 ptamData = [(x - ptamData[0]) for x in ptamData];
     
